@@ -143,6 +143,10 @@ public struct SynthCodableMacro: MemberMacro {
                 else if isForeignKey {
                     initFromDecoderStatements.append("self.\(propertyName) = try container.decode(\(propertyType).self, forKey: .\(propertyName))")
                     encodeStatements.append("try container.encode(\(propertyName), forKey: .\(propertyName))")
+
+                    // Add to convenience initializer if it's a regular property
+                    convenienceInitParameters.append("\(propertyName): \(propertyType)")
+                    convenienceInitAssignments.append("self.\(propertyName) = \(propertyName)")
                 }
                 // Regular attributes
                 else {
