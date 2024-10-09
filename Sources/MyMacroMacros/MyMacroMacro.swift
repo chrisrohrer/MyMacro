@@ -142,7 +142,7 @@ public struct SynthCodableMacro: MemberMacro {
                 // Handle foreign key properties (decode as non-optional, e.g., Int.self)
                 else if isForeignKey {
                     initFromDecoderStatements.append("self.\(propertyName) = try container.decode(\(propertyType).self, forKey: .\(propertyName))")
-                    encodeStatements.append("try container.encodeIfPresent(\(propertyName), forKey: .\(propertyName))")
+                    encodeStatements.append("try container.encode(\(propertyName), forKey: .\(propertyName))")
                 }
                 // Regular attributes
                 else {
