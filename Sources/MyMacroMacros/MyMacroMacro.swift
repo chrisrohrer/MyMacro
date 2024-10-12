@@ -5,32 +5,10 @@ import SwiftSyntaxMacros
 
 import Foundation
 
-/// Implementation of the `stringify` macro, which takes an expression
-/// of any type and produces a tuple containing the value of that expression
-/// and the source code that produced the value. For example
-///
-///     #stringify(x + y)
-///
-///  will expand to
-///
-///     (x + y, "x + y")
-public struct StringifyMacro: ExpressionMacro {
-    public static func expansion(
-        of node: some FreestandingMacroExpansionSyntax,
-        in context: some MacroExpansionContext
-    ) -> ExprSyntax {
-        guard let argument = node.argumentList.first?.expression else {
-            fatalError("compiler bug: the macro does not have any arguments")
-        }
-        
-        return "(\(argument), \(literal: argument.description))"
-    }
-}
 
 @main
 struct MyMacroPlugin: CompilerPlugin {
     let providingMacros: [Macro.Type] = [
-        StringifyMacro.self,
         SynthCodableMacro.self
     ]
 }
@@ -53,6 +31,12 @@ func getTypeName(_ type: String) -> String {
         .replacingOccurrences(of: "[", with: "")
         .replacingOccurrences(of: "]", with: "")
         .replacingOccurrences(of: " ", with: "")
+}
+
+
+// Helper function to check if a type is RawRepresentable (i.e., an enum with raw values)
+func isRawRepresentableEnum(_ type: String, context: some MacroExpansionContext) -> Bool {
+    return context.lookupType(named: type)?.conforms(to: "RawRepresentable") == true
 }
 
 
@@ -124,12 +108,12 @@ public struct SynthCodableMacro: MemberMacro {
                     codingKeys.append("case \(propertyName) = \"\(propertyName.camelCaseToSnakeCase())\"")
                 }
 
-
                 // Handle id property with encodeIfPresent
                 if propertyName == "id" {
                     encodeStatements.append("try container.encodeIfPresent(id, forKey: .id)")
                     initFromDecoderStatements.append("self.id = try container.decodeIfPresent(Int.self, forKey: .id)")
                 }
+                
                 // Handle relation properties (decode only)
                 else if isRelation {
                     // For collections like `books`, provide a default empty array ([])
@@ -139,6 +123,7 @@ public struct SynthCodableMacro: MemberMacro {
                         initFromDecoderStatements.append("self.\(propertyName) = try container.decodeIfPresent(\(nonOptionalPropertyType).self, forKey: .\(propertyName))")
                     }
                 }
+                
                 // Handle foreign key properties (decode as non-optional, e.g., Int.self)
                 else if isForeignKey {
                     initFromDecoderStatements.append("self.\(propertyName) = try container.decode(\(propertyType).self, forKey: .\(propertyName))")
