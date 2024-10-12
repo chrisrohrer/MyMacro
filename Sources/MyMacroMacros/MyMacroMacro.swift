@@ -34,11 +34,6 @@ func getTypeName(_ type: String) -> String {
 }
 
 
-// Helper function to check if a type is RawRepresentable (i.e., an enum with raw values)
-func isRawRepresentableEnum(_ type: String, context: some MacroExpansionContext) -> Bool {
-    return context.lookupType(named: type)?.conforms(to: "RawRepresentable") == true
-}
-
 
 
 public struct SynthCodableMacro: MemberMacro {
@@ -94,6 +89,12 @@ public struct SynthCodableMacro: MemberMacro {
                 }
                 return false
             }
+            let isEnum = variableDecl.attributes.contains { attribute in
+                if let attributeSyntax = attribute.as(AttributeSyntax.self) {
+                    return attributeSyntax.attributeName.description.contains("Enum")
+                }
+                return false
+            }
 
             if let typeAnnotation = binding.typeAnnotation {
                 let propertyType = typeAnnotation.type.description
@@ -133,6 +134,18 @@ public struct SynthCodableMacro: MemberMacro {
                     convenienceInitParameters.append("\(propertyName): \(propertyType)")
                     convenienceInitAssignments.append("self.\(propertyName) = \(propertyName)")
                 }
+                
+                // Handle enums with raw values
+                else if isEnum {
+                    initFromDecoderStatements.append("self.\(propertyName) = \(nonOptionalPropertyType)(rawValue: try container.decode(\(nonOptionalPropertyType).RawValue.self, forKey: .\(propertyName)))!")
+                    encodeStatements.append("try container.encode(\(propertyName).rawValue, forKey: .\(propertyName))")
+                    
+                    // Add to convenience initializer
+                    convenienceInitParameters.append("\(propertyName): \(propertyType)")
+                    convenienceInitAssignments.append("self.\(propertyName) = \(propertyName)")
+                }
+                
+                
                 // Regular attributes
                 else {
                     initFromDecoderStatements.append("self.\(propertyName) = try container.decode(\(propertyType).self, forKey: .\(propertyName))")
